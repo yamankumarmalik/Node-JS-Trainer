@@ -3,6 +3,10 @@ const express = require("express");
 // Create mini express userApp
 const userApp = express.Router();
 
+const bcryptjs = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const verifyToken = require("../middlewares/verifyToken");
+
 //sample user data
 let users = [{ id: 100, name: "Ravi" }];
 
@@ -38,14 +42,20 @@ userApp.get("/users/:userId", async (req, res) => {
 userApp.post("/users", async (req, res) => {
   //get user from client
   const user = req.body;
-  //save to usersCollection
-  let dbRes = await usersCollection.insertOne(user);
+  //check for duplicate user in database
+  let userFromDb = await usersCollection.findOne({ username: user.username });
 
-  //send res
-  if (dbRes.acknowledged === true) {
-    res.status(201).send({ message: "User Created" });
+  if (userFromDb !== null) {
+    res.status(200).send({ message: "User already existed!" });
   } else {
-    res.status(500).send({ message: "Something went wrong!" });
+    //hash the password
+    let hashedPassword = await bcryptjs.hash(user.password, 5);
+    //convert plain password to hash password
+    user.password = hashedPassword;
+    //save user
+    usersCollection.insertOne(user);
+    //send res
+    res.status(200).send({ message: "User created!" });
   }
 });
 
@@ -71,5 +81,43 @@ userApp.delete("/users/:id", async (req, res) => {
   let dbRes = await usersCollection.deleteOne({ id: userId });
   console.log(dbRes);
 });
+
+//to do user login
+userApp.post("/users/user-login", async (req, res) => {
+  //get user credentials
+  let userCred = req.body;
+  //check the user in db with username
+  let userOfDb = await usersCollection.findOne({ username: userCred.username });
+  //if passwords are not matched
+  if (userOfDb === false) {
+    res.status(404).send({ message: "Invalid username" });
+  }
+  //if user found
+  else {
+    //compare password
+    let result = await bcryptjs.compare(userCred.password, userOfDb.password);
+    //if passwords are not matched
+    if (result === false) {
+      res.status(404).send({ message: "Invalid password" });
+    }
+    //if passwords are matched
+    else {
+      //create a signed token
+      let signedToken = jwt.sign({ username: userOfDb.username }, "abcdefgh", {
+        expiresIn: 100,
+      });
+      //send token to client
+      res
+        .status(200)
+        .send({ message: "login success", token: signedToken, user: userOfDb });
+    }
+  }
+});
+
+//protected route
+userApp.get("/protected", verifyToken, (req, res) => {
+  console.log(req.headers);
+});
+
 
 module.exports = userApp;
