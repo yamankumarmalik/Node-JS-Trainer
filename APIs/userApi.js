@@ -17,7 +17,7 @@ userApp.use((req, res, next) => {
 });
 
 //get all users
-userApp.get("/users", async (req, res, next) => {
+userApp.get("/users", verifyToken, async (req, res, next) => {
   try {
     //read all users
     const users = await usersCollection.find().toArray();
@@ -42,6 +42,12 @@ userApp.get("/users/:userId", async (req, res) => {
 userApp.post("/users", async (req, res) => {
   //get user from client
   const user = req.body;
+
+  //validations
+  if (!user.username) {
+    return res.send({ message: "Plz send valid username!" });
+  }
+
   //check for duplicate user in database
   let userFromDb = await usersCollection.findOne({ username: user.username });
 
@@ -117,7 +123,7 @@ userApp.post("/users/user-login", async (req, res) => {
 //protected route
 userApp.get("/protected", verifyToken, (req, res) => {
   console.log(req.headers);
+  res.send({ message: "This res from protected Route!" });
 });
-
 
 module.exports = userApp;

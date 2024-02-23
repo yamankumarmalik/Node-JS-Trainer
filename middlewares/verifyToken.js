@@ -8,7 +8,7 @@ function verifyToken(req, res, next) {
     const token = bearerToken.split(" ")[1];
     //verify the token
     const decodedToken = jwt.verify(token, 'abcdefgh');
-    console.log(decodedToken)
+    next();
     
   } else {
     res.status(200).send({ message: "Unauthorized access!" });
